@@ -15,8 +15,9 @@ from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 from langchain_community.llms import HuggingFaceEndpoint
 import torch
+# import tiktoken
 
-list_llm = ["meta-llama/Meta-Llama-3-8B-Instruct", "mistralai/Mistral-7B-Instruct-v0.2"]  
+list_llm = ["meta-llama/Llama-3.2-3B-Instruct", "meta-llama/Llama-3.2-1B-Instruct", "meta-llama/Meta-Llama-3-8B-Instruct", "mistralai/Mistral-7B-Instruct-v0.2"]  
 list_llm_simple = [os.path.basename(llm) for llm in list_llm]
 
 # Load and split PDF document
@@ -41,10 +42,24 @@ def create_db(splits):
     vectordb = FAISS.from_documents(splits, embeddings)
     return vectordb
 
+def create_or_load_db(splits, db_path="faiss_index"):
+    embeddings = HuggingFaceEmbeddings()
+
+    # Check if the FAISS index already exists
+    if os.path.exists(db_path):
+        vectordb = FAISS.load_local(db_path, embeddings)
+        print("Loaded existing vector database from disk.")
+    else:
+        vectordb = FAISS.from_documents(splits, embeddings)
+        vectordb.save_local(db_path)
+        print("Created and saved new vector database.")
+    
+    return vectordb
+
 
 # Initialize langchain LLM chain
 def initialize_llmchain(llm_model, temperature, max_tokens, top_k, vector_db, progress=gr.Progress()):
-    if llm_model == "meta-llama/Meta-Llama-3-8B-Instruct":
+    if llm_model == "meta-llama/Meta-Llama-3-8B-Instruct" or llm_model == "meta-llama/Llama-3.2-3B-Instruct" or llm_model == "meta-llama/Llama-3.2-1B-Instruct":
         llm = HuggingFaceEndpoint(
             repo_id=llm_model,
             huggingfacehub_api_token = api_token,
@@ -87,7 +102,7 @@ def initialize_database(list_file_obj, progress=gr.Progress()):
     doc_splits = load_doc(list_file_path)
     print("load_doc ")
     # Create or load vector database
-    vector_db = create_db(doc_splits)
+    vector_db = create_or_load_db(doc_splits, list_file_path[0])
     print("vector_db ")
     return vector_db, "Document is ready to be queried!"
 
