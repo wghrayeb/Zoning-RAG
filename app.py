@@ -17,7 +17,8 @@ from langchain_community.llms import HuggingFaceEndpoint
 import torch
 # import tiktoken
 
-list_llm = ["meta-llama/Llama-3.2-3B-Instruct", "meta-llama/Llama-3.2-1B-Instruct", "meta-llama/Meta-Llama-3-8B-Instruct", "mistralai/Mistral-7B-Instruct-v0.2"]  
+# list_llm = ["meta-llama/Llama-3.2-3B-Instruct", "meta-llama/Llama-3.2-1B-Instruct", "meta-llama/Meta-Llama-3-8B-Instruct", "mistralai/Mistral-7B-Instruct-v0.2"]  
+list_llm = ["meta-llama/Llama-3.1-8B-Instruct", "meta-llama/Llama-3.1-70B-Instruct", "meta-llama/Llama-3.1-405B-Instruct", "meta-llama/Llama-3.1-405B-Instruct-FP8"]  
 list_llm_simple = [os.path.basename(llm) for llm in list_llm]
 
 # Load and split PDF document
@@ -63,7 +64,7 @@ def create_or_load_db(splits, db_path="faiss_index"):
 
 # Initialize langchain LLM chain
 def initialize_llmchain(llm_model, temperature, max_tokens, top_k, vector_db, progress=gr.Progress()):
-    if llm_model == "meta-llama/Meta-Llama-3-8B-Instruct" or llm_model == "meta-llama/Llama-3.2-3B-Instruct" or llm_model == "meta-llama/Llama-3.2-1B-Instruct":
+    if llm_model == "meta-llama/Meta-Llama-3-8B-Instruct":
         llm = HuggingFaceEndpoint(
             repo_id=llm_model,
             huggingfacehub_api_token = api_token,

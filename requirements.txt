@@ -7,4 +7,4 @@ tqdm
 accelerate
 pypdf
 faiss-cpu
-gradio==4.43.0
+gradio==4.44.1
