@@ -43,11 +43,15 @@ def create_db(splits):
     return vectordb
 
 def create_or_load_db(splits, db_path="faiss_index"):
-    embeddings = HuggingFaceEmbeddings()
+    model_name = "all-MPNet-base-v2"
+    # model_name = "nlpaueb/legal-bert-base-uncased"
+    # model_name = "text-embedding-ada-002"
+    
+    embeddings = HuggingFaceEmbeddings(model_name=model_name)
 
     # Check if the FAISS index already exists
     if os.path.exists(db_path):
-        vectordb = FAISS.load_local(db_path, embeddings)
+        vectordb = FAISS.load_local(db_path, embeddings, allow_dangerous_deserialization=True)
         print("Loaded existing vector database from disk.")
     else:
         vectordb = FAISS.from_documents(splits, embeddings)
@@ -94,15 +98,19 @@ def initialize_llmchain(llm_model, temperature, max_tokens, top_k, vector_db, pr
     return qa_chain
 
 # Initialize database
-def initialize_database(list_file_obj, progress=gr.Progress()):
+def initialize_database(list_file_obj, is_offline=False, progress=gr.Progress()):
+
     # Create a list of documents (when valid)
-    list_file_path = [x.name for x in list_file_obj if x is not None]
-    print("load_doc ")
+    if is_offline:
+        list_file_path = list_file_obj
+    else:
+        list_file_path = [x.name for x in list_file_obj if x is not None]
+
     # Load document and create splits
     doc_splits = load_doc(list_file_path)
     print("load_doc ")
     # Create or load vector database
-    vector_db = create_or_load_db(doc_splits, list_file_path[0])
+    vector_db = create_or_load_db(doc_splits)
     print("vector_db ")
     return vector_db, "Document is ready to be queried!"
 
@@ -151,7 +159,8 @@ def upload_file(file_obj):
     return list_file_path
 
 
-def demo():
+def demo_gradio(default_prompt):
+
     # with gr.Blocks(theme=gr.themes.Default(primary_hue="sky")) as demo:
     with gr.Blocks(theme=gr.themes.Default(primary_hue="red", secondary_hue="pink", neutral_hue = "sky")) as demo:
         vector_db = gr.State()
@@ -201,7 +210,7 @@ def demo():
                         doc_source3 = gr.Textbox(label="Reference 3", lines=2, container=True, scale=20)
                         source3_page = gr.Number(label="Page", scale=1)
                 with gr.Row():
-                    msg = gr.Textbox(placeholder="Ask a question", container=True)
+                    msg = gr.Textbox(value=default_prompt , placeholder="Ask a question", container=True)
                 with gr.Row():
                     submit_btn = gr.Button("Submit")
                     clear_btn = gr.ClearButton([msg, chatbot], value="Clear")
@@ -233,5 +242,43 @@ def demo():
     demo.queue().launch(debug=True)
 
 
+def demo_offline(default_prompt):
+
+    document = ['examples/los_angeles-ca-1.pdf']
+    vector_db, _ = initialize_database(document, True)
+    qa_chain, _ = initialize_LLM(2, 0.5, 4096, 3, vector_db)
+
+    response = conversation(qa_chain, default_prompt, [])
+
+    print(response)
+
+
 if __name__ == "__main__":
-    demo()
+
+    default_prompt = '''Exclusively based on the information given in the PDF and upcoming information: The Zone is R1-1, the lot size is 3,397.6 sq ft, the lot depth is 85 ft, the lot width is 40 ft, the existing building’s footprint is 1151.6 sq ft, the existing building square footage is 936 sq ft.
+
+    Create a table that summarizes the below information, and include a reference of the article number in the document for each result. 
+    If a result has more than one option - please detail the options. 
+    You can make calculation when needed, in this case state that and include the equation used for that.
+    
+    Table: Property Development Details
+
+    The Rows:
+    Zoning
+    Land Use
+    Floor Area Ratio (FAR)
+    Maximum Lot Coverage
+    Setbacks (front, side, rear)
+    Maximum Number of Stories
+    Maximum Height
+    Maximum Density
+    Maximum Number of Buildings
+    Minimum Area Per Lot
+    Minimum Area per Dwelling Unit
+    Minimum Lot Width
+    Number of parking required
+    Maximum Buildable Area
+    Available Square Footage for Addition
+    Available Square Footage for Addition on Ground Floor'''
+
+    demo_gradio(default_prompt)
